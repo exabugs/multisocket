@@ -36,7 +36,7 @@
   var CMD_DISCONNECT = 'disconnect';
   var CMD_RECONNECT = 'reconnect';
 
-  var DISCONNECT_TIMEOUT = 10; // 再接続可能時間 60ｓ
+  var DISCONNECT_TIMEOUT = 30; // 再接続可能時間 30ｓ
 
   // 唯一のWebsocket接続を準備する
   var MultiSocket = function(io, namespace, option, server, authFunc) {
