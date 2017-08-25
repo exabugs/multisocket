@@ -110,8 +110,7 @@
       ws.on(CMD_DISCONNECT, function(d) {
         console.log(CMD_DISCONNECT + ' close-timer start');
         self.disconnectTimer = setTimeout(function() {
-          console.log(CMD_DISCONNECT);
-
+          console.log(CMD_DISCONNECT + ' ' + d);
           const events = self.connection.events;
           events[CMD_DISCONNECT] && events[CMD_DISCONNECT]();
 
@@ -120,8 +119,7 @@
       ws.on(CMD_RECONNECT, function(d) {
         console.log(CMD_DISCONNECT + ' close-timer canceled');
         clearTimeout(self.disconnectTimer);
-        console.log(CMD_RECONNECT);
-        console.log(d);
+        console.log(CMD_RECONNECT + ' ' + d);
         ws.emit('challenge ' + CMD_RECONNECT, self.id);
       });
     }
@@ -239,7 +237,7 @@
       var data = {
         name: conn.name,
         number: conn.number,
-        id: this.id,
+        id: this.id
       };
       this.ws.emit(CMD_CONNECTION, JSON.stringify(data));
     }
