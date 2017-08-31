@@ -36,6 +36,9 @@
   var CMD_DISCONNECT = 'disconnect';
   var CMD_RECONNECT = 'reconnect';
 
+  var CMD_CHALLENGE_RECONN = 'challenge reconnect';
+  var CMD_CHALLENGE_FAILED = 'challenge failed';
+
   var DISCONNECT_TIMEOUT = 30; // 再接続可能時間 30ｓ
 
   // 唯一のWebsocket接続を準備する
@@ -52,7 +55,7 @@
 
         self.ws[ws.id] = new Line(self.connectionFunc, ws, authFunc);
 
-        ws.on('challenge ' + CMD_RECONNECT, function(id) {
+        ws.on(CMD_CHALLENGE_RECONN, function(id) {
           var line = self.cn[id];
           // 同じならつなぎ替える必要はない
           if (line && (line.ws.id !== ws.id)) {
@@ -68,6 +71,10 @@
             self.ws[ws.id] = line;
             self.ws[os.id] = undefined;
             line.reconnect(ws); // リスナー登録
+          } else if (!line) {
+            // サーバ側が再起動した
+            console.log(CMD_CHALLENGE_FAILED);
+            ws.emit(CMD_CHALLENGE_FAILED);
           }
         });
 
@@ -104,6 +111,7 @@
       });
     } else {
       var ws = io(namespace, option);
+      var self = this;
       this.number = 0;
       this.ws = ws;
       this.id = Math.random().toString(36).slice(-8);
@@ -120,7 +128,10 @@
         console.log(CMD_DISCONNECT + ' close-timer canceled');
         clearTimeout(self.disconnectTimer);
         console.log(CMD_RECONNECT + ' ' + d);
-        ws.emit('challenge ' + CMD_RECONNECT, self.id);
+        ws.emit(CMD_CHALLENGE_RECONN, self.id);
+      });
+      ws.on(CMD_CHALLENGE_FAILED, function() {
+        self.restart && self.restart();
       });
     }
     return this;
