@@ -30,6 +30,7 @@
 //   クライアント : MultiSocket > Connection
 
 (function(root) {
+  var zlib = require('zlib');
 
   var CMD_AUTH = 'authentication';
   var CMD_CONNECTION = 'connection';
@@ -215,15 +216,32 @@
   };
 
   Connection.prototype.emit = function(key, data) {
-    this.parent.ws.emit(this.eventName(key), data);
+    var self = this;
+    if (typeof data === 'string' || typeof data === 'object') {
+      zlib.gzip(JSON.stringify(data), function(err, bin) {
+        self.parent.ws.emit(self.eventName(key), bin.toString('base64'));
+      });
+    } else {
+      self.parent.ws.emit(self.eventName(key), data);
+    }
   };
 
   Connection.prototype.on = function(key, func) {
     if (key === CMD_CONNECTION) {
       this.parent.connectionFunc[this.name] = func;
     } else {
-      this.parent.ws.on(this.eventName(key), func);
-      this.events[key] = func;
+      function hook(data) {
+        if (typeof data === 'string') {
+          zlib.gunzip(new Buffer(data, 'base64'), function(err, bin) {
+            func(JSON.parse(bin));
+          });
+        } else {
+          func(data);
+        }
+      }
+
+      this.parent.ws.on(this.eventName(key), hook);
+      this.events[key] = hook;
     }
   };
 
