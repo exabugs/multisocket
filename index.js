@@ -182,9 +182,7 @@
     Object.keys(conns).forEach(function(key) {
       var conn = conns[key];
       var events = conn.events;
-      Object.keys(events).forEach(function(key) {
-        conn.on(key, events[key]);
-      });
+      conn.ons(events);
     });
   };
 
@@ -224,6 +222,12 @@
     } else {
       self.parent.ws.emit(self.eventName(key), data);
     }
+  };
+
+  Connection.prototype.ons = function(events) {
+    Object.keys(events).forEach(function(key) {
+      this.on(key, events[key]);
+    }, this);
   };
 
   Connection.prototype.on = function(key, func) {
