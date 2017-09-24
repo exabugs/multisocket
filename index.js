@@ -33,6 +33,7 @@
   var zlib = require('zlib');
 
   var CMD_AUTH = 'authentication';
+  var CMD_CONNECT = 'connect';
   var CMD_CONNECTION = 'connection';
   var CMD_DISCONNECT = 'disconnect';
   var CMD_RECONNECT = 'reconnect';
@@ -43,8 +44,10 @@
   var DISCONNECT_TIMEOUT = 30; // 再接続可能時間 30ｓ
 
   // 唯一のWebsocket接続を準備する
-  var MultiSocket = function(io, namespace, option, server, authFunc) {
+  // CB : Callback Functions
+  var MultiSocket = function(io, namespace, option, CB, server) {
     this.server = server;
+    this.CB = CB || {};
     var self = this;
     if (server) {
       this.connectionFunc = {}; // 接続時関数
@@ -54,7 +57,7 @@
       socket.of(namespace).on(CMD_CONNECTION, function(ws) {
         console.log('transport open  : ' + ws.id);
 
-        self.ws[ws.id] = new Line(self.connectionFunc, ws, authFunc);
+        self.ws[ws.id] = new Line(self.connectionFunc, ws, CB.auth);
 
         ws.on(CMD_CHALLENGE_RECONN, function(id) {
           var line = self.cn[id];
@@ -116,7 +119,11 @@
       this.number = 0;
       this.ws = ws;
       this.id = Math.random().toString(36).slice(-8);
+      ws.on(CMD_CONNECT, function(d) {
+        // CB.state && CB.state(CMD_CONNECT);
+      });
       ws.on(CMD_DISCONNECT, function(d) {
+        CB.state && CB.state(CMD_DISCONNECT);
         console.log(CMD_DISCONNECT + ' close-timer start');
         self.disconnectTimer = setTimeout(function() {
           console.log(CMD_DISCONNECT + ' ' + d);
@@ -126,6 +133,7 @@
         }, DISCONNECT_TIMEOUT * 1000);
       });
       ws.on(CMD_RECONNECT, function(d) {
+        CB.state && CB.state(CMD_RECONNECT);
         console.log(CMD_DISCONNECT + ' close-timer canceled');
         clearTimeout(self.disconnectTimer);
         console.log(CMD_RECONNECT + ' ' + d);
@@ -140,7 +148,11 @@
 
   // 認証 : Client側
   MultiSocket.prototype.authenticate = function(token, callback) {
+    const state = this.CB.state;
     this.ws.on(CMD_AUTH, function(data) {
+      if (data === 'success') {
+        state && state(CMD_CONNECT)
+      }
       callback(data);
     });
     this.ws.emit(CMD_AUTH, token);
@@ -237,7 +249,11 @@
       function hook(data) {
         if (typeof data === 'string') {
           zlib.gunzip(new Buffer(data, 'base64'), function(err, bin) {
-            func(JSON.parse(bin));
+            if (err) {
+              func(data);
+            } else {
+              func(JSON.parse(bin));
+            }
           });
         } else {
           func(data);
