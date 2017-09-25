@@ -38,8 +38,13 @@
   var CMD_DISCONNECT = 'disconnect';
   var CMD_RECONNECT = 'reconnect';
 
-  var CMD_CHALLENGE_RECONN = 'challenge reconnect';
-  var CMD_CHALLENGE_FAILED = 'challenge failed';
+  var CMD_CONNECT_ERROR = 'connect_error';
+  var CMD_CONNECT_TIMEOUT = 'connect_timeout';
+  var CMD_RECONNECT_ERROR = 'reconnect_error';
+  var CMD_RECONNECT_FAILED = 'reconnect_failed';
+
+  var CMD_CHALLENGE_RECONN = 'challenge_reconnect';
+  var CMD_CHALLENGE_FAILED = 'challenge_failed';
 
   var DISCONNECT_TIMEOUT = 30; // 再接続可能時間 30ｓ
 
@@ -48,6 +53,7 @@
   var MultiSocket = function(io, namespace, option, CB, server) {
     this.server = server;
     this.CB = CB || {};
+    this.CB.state = this.CB.state || ((s) => s);
     var self = this;
     if (server) {
       this.connectionFunc = {}; // 接続時関数
@@ -120,10 +126,9 @@
       this.ws = ws;
       this.id = Math.random().toString(36).slice(-8);
       ws.on(CMD_CONNECT, function(d) {
-        // CB.state && CB.state(CMD_CONNECT);
       });
       ws.on(CMD_DISCONNECT, function(d) {
-        CB.state && CB.state(CMD_DISCONNECT);
+        CB.state(CMD_DISCONNECT);
         console.log(CMD_DISCONNECT + ' close-timer start');
         self.disconnectTimer = setTimeout(function() {
           console.log(CMD_DISCONNECT + ' ' + d);
@@ -133,14 +138,26 @@
         }, DISCONNECT_TIMEOUT * 1000);
       });
       ws.on(CMD_RECONNECT, function(d) {
-        CB.state && CB.state(CMD_RECONNECT);
+        CB.state(CMD_RECONNECT);
         console.log(CMD_DISCONNECT + ' close-timer canceled');
         clearTimeout(self.disconnectTimer);
         console.log(CMD_RECONNECT + ' ' + d);
         ws.emit(CMD_CHALLENGE_RECONN, self.id);
       });
       ws.on(CMD_CHALLENGE_FAILED, function() {
-        self.restart && self.restart();
+        CB.state(CMD_CHALLENGE_FAILED);
+      });
+      ws.on(CMD_CONNECT_ERROR, function() {
+        CB.state(CMD_CONNECT_ERROR);
+      });
+      ws.on(CMD_CONNECT_TIMEOUT, function() {
+        CB.state(CMD_CONNECT_TIMEOUT);
+      });
+      ws.on(CMD_RECONNECT_ERROR, function() {
+        CB.state(CMD_RECONNECT_ERROR);
+      });
+      ws.on(CMD_RECONNECT_FAILED, function() {
+        CB.state(CMD_RECONNECT_FAILED);
       });
     }
     return this;
@@ -151,7 +168,7 @@
     const state = this.CB.state;
     this.ws.on(CMD_AUTH, function(data) {
       if (data === 'success') {
-        state && state(CMD_CONNECT)
+        state(CMD_CONNECT)
       }
       callback(data);
     });
